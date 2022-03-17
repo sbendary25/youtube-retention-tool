@@ -14,7 +14,7 @@ function App() {
     window.gapi.load("client:auth2", function() {
       window.gapi.auth2.init({
         client_id:
-          "743398569561-8mg3ppj346repm0a4mh122hfbkpl3139.apps.googleusercontent.com"
+          "880945636048-tr1frgje4ob4o1skqdkimptbh0nbnrds.apps.googleusercontent.com"
       });
     });
   });
@@ -51,7 +51,7 @@ function App() {
   };
 
   const loadClient = () => {
-    window.gapi.client.setApiKey("AIzaSyBxP9XqMyhtki7RwffuaE5xdH42rOIXs_Q");
+    window.gapi.client.setApiKey("AIzaSyB5tUiVzgowjlAouVx7eucGcqk17wqaOvM");
     return window.gapi.client
       .load("https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest")
       .then(
