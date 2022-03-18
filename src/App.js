@@ -1,20 +1,31 @@
 import React, { useState, useEffect } from "react";
 import YouTube from "react-youtube";
 import "./App.css";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
+} from "recharts";
+
 var moment = require("moment");
 var momentDurationFormatSetup = require("moment-duration-format");
-console.log(moment.duration("PT5M33S").format("hh:mm:ss"));
 
 function App() {
   const [videos, setVideos] = useState([]);
+  const [activeVideo, setActiveVideo] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [loadRetention, setLoadRetention] = useState(true);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
+  const [chartData, setChartData] = useState(null);
+  const [player, setPlayer] = useState(null);
   useEffect(() => {
     window.gapi.load("client:auth2", function() {
       window.gapi.auth2.init({
         client_id:
-          "880945636048-tr1frgje4ob4o1skqdkimptbh0nbnrds.apps.googleusercontent.com"
+          "743398569561-8mg3ppj346repm0a4mh122hfbkpl3139.apps.googleusercontent.com"
       });
     });
   });
@@ -27,6 +38,7 @@ function App() {
 
   useEffect(() => {
     if (Object.keys(videos).length > 0 && loadRetention) {
+      setActiveVideo(Object.keys(videos)[0]);
       getRetentionData();
     }
   }, [videos, loadRetention]);
@@ -117,11 +129,14 @@ function App() {
         function(response) {
           response.result.items.forEach(x => {
             let id = x.id;
-            let duration = moment
-              .duration(x.contentDetails.duration)
-              .format("hh:mm:ss");
+            let duration = x.contentDetails.duration;
             let viewCount = x.statistics.viewCount;
-            tmpVideoData[id] = { ...tmpVideoData[id], duration, viewCount };
+            tmpVideoData[id] = {
+              ...tmpVideoData[id],
+              duration,
+              viewCount,
+              color: Math.floor(Math.random() * 16777215).toString(16)
+            };
           });
           setVideos(tmpVideoData);
           // Handle the results here (response.result has the parsed body).
@@ -153,6 +168,7 @@ function App() {
       );
 
     let tmpVideoData = videos;
+    let tmpRetentionData = {};
 
     Object.keys(videos).forEach(async videoId => {
       await window.gapi.client.youtubeAnalytics.reports
@@ -170,6 +186,15 @@ function App() {
             let rows = response.result.rows;
             // Handle the results here (response.result has the parsed body).
             tmpVideoData[videoId]["retentionData"] = { columnHeaders, rows };
+            rows.forEach(x => {
+              let key = Math.round(x[0] * 100).toString();
+              tmpRetentionData[key] = tmpRetentionData[key]
+                ? tmpRetentionData[key]
+                : {};
+              tmpRetentionData[key]["name"] = x[0];
+              tmpRetentionData[key][videoId] = x[1] >= 1 ? 1 : x[1];
+            });
+
             console.log("Response", response);
           },
           function(err) {
@@ -178,6 +203,7 @@ function App() {
         );
     });
     setVideos(tmpVideoData);
+    setChartData(tmpRetentionData);
   };
 
   const onReady = event => {
@@ -186,6 +212,13 @@ function App() {
     setTimeout(() => {
       event.target.pauseVideo();
     }, 500);
+    // setPlayer(event.target);
+  };
+
+  const chartSeek = percentage => {
+    let activeVideoDuration = videos[activeVideo].duration;
+    let seekTo = moment.duration(activeVideoDuration).asSeconds() * percentage;
+    // player.seekTo(seekTo);
   };
 
   const playerOpts = {
@@ -213,15 +246,19 @@ function App() {
             {Object.values(videos).map(video => (
               <div
                 className={`video-row ${
-                  video.id === selectedVideoId ? "selected" : ""
+                  video.id === activeVideo ? "selected" : ""
                 }`}
                 onClick={() => {
-                  setSelectedVideoId(video.id);
+                  setActiveVideo(video.id);
                 }}
               >
                 <img className="vid-col-1" src={video.thumbnail} />
-                <p className="vid-col-2">{video.title}</p>
-                <p className="vid-col-3">{video.duration}</p>
+                <p className="vid-col-2" style={{ color: `#${video.color}` }}>
+                  {video.title}
+                </p>
+                <p className="vid-col-3">
+                  {moment.duration(video.duration).format("hh:mm:ss")}
+                </p>
               </div>
             ))}
           </div>
@@ -233,7 +270,32 @@ function App() {
             />
           </div>
           <div className="div3">c </div>
-          <div className="div4"> d</div>
+          <div className="div4">
+            {chartData ? (
+              <LineChart
+                height={400}
+                width={750}
+                data={Object.values(chartData)}
+                onClick={data => {
+                  chartSeek(data.activeLabel);
+                }}
+              >
+                {Object.keys(videos).map(x => (
+                  <Line
+                    type="monotone"
+                    dataKey={x}
+                    stroke={`#${videos[x].color}`}
+                  />
+                ))}
+                <CartesianGrid stroke="#ccc" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+              </LineChart>
+            ) : (
+              <h1>loading retention data</h1>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
